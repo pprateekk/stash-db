@@ -10,7 +10,7 @@ pub enum StashError {
 pub type StashResult<T> = Result<T, StashError>;
 
 pub struct Stash {
-	pub store: Arc<RwLock<HashMap<String, String>>>,
+	store: Arc<RwLock<HashMap<String, String>>>,
 }
 
 impl Stash {
@@ -31,6 +31,16 @@ impl Stash {
 
 		Ok(())
 	}
+
+	pub fn get(&self, key: &str) -> StashResult<Option<String>> {
+		if key.is_empty() {
+			return Err(StashError::EmptyKey);
+		}
+
+		let store = self.store.read().map_err(|_| StashError::LockPoisoned)?;
+
+		Ok(store.get(key).cloned())
+	}
 }
 
 #[cfg(test)]
@@ -43,8 +53,8 @@ mod tests {
 
 		db.set("a".to_string(), "1".to_string()).unwrap();
 
-		let store = db.store.read().unwrap();
-		assert_eq!(store.get("a"), Some(&"1".to_string()));
+		let val_one = db.get("a").unwrap();
+		assert_eq!(val_one, Some("1".to_string()));
 	}
 
 	#[test]
@@ -63,7 +73,23 @@ mod tests {
 		db.set("a".to_string(), "1".to_string()).unwrap();
 		db.set("a".to_string(), "2".to_string()).unwrap();
 
-		let store = db.store.read().unwrap();
-		assert_eq!(store.get("a"), Some(&"2".to_string()));
+		let val_one = db.get("a").unwrap();
+		assert_eq!(val_one, Some("2".to_string()));
+	}
+
+	#[test]
+	fn get_non_existent_key_returns_none() {
+		let db = Stash::new();
+
+		let val = db.get("non_existent").unwrap();
+		assert_eq!(val, None);
+	}
+
+	#[test]
+	fn get_empty_key_returns_error() {
+		let db = Stash::new();
+
+		let result = db.get("");
+		assert!(matches!(result, Err(StashError::EmptyKey)));
 	}
 }
