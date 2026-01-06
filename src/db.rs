@@ -41,6 +41,16 @@ impl Stash {
 
 		Ok(store.get(key).cloned())
 	}
+
+	pub fn exists(&self, key: &str) -> StashResult<bool> {
+		if key.is_empty() {
+			return Err(StashError::EmptyKey);
+		}
+
+		let store = self.store.read().map_err(|_| StashError::LockPoisoned)?;
+
+		Ok(store.contains_key(key))
+	}
 }
 
 #[cfg(test)]
@@ -92,4 +102,29 @@ mod tests {
 		let result = db.get("");
 		assert!(matches!(result, Err(StashError::EmptyKey)));
 	}
+
+	//tests for exists method
+	#[test]
+	fn exists_returns_true_for_existing_key() {
+		let db = Stash::new();
+		db.set("a".to_string(), "1".to_string()).unwrap();
+
+		let exists = db.exists("a").unwrap();
+		assert!(exists);
+	}
+
+	#[test]
+	fn exists_returns_false_for_non_existent_key() {
+		let db = Stash::new();
+		let exists = db.exists("missing").unwrap();
+		assert!(!exists);
+	}
+
+	#[test]
+	fn exists_empty_key_returns_error() {
+		let db = Stash::new();
+		let result = db.exists("");
+		assert!(matches!(result, Err(StashError::EmptyKey)));
+	}
+
 }
