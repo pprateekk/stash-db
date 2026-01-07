@@ -51,6 +51,16 @@ impl Stash {
 
 		Ok(store.contains_key(key))
 	}
+
+	pub fn delete(&self, key: &str) -> StashResult<bool> {
+		if key.is_empty() {
+			return Err(StashError::EmptyKey);
+		}
+
+		let mut store = self.store.write().map_err(|_| StashError::LockPoisoned)?;
+		Ok(store.remove(key).is_some())
+	}
+	
 }
 
 #[cfg(test)]
@@ -127,4 +137,28 @@ mod tests {
 		assert!(matches!(result, Err(StashError::EmptyKey)));
 	}
 
+	//tests for delete method
+	#[test]
+	fn delete_removes_existing_key() {
+		let db = Stash::new();
+		db.set("a".to_string(), "1".to_string()).unwrap();
+		let deleted = db.delete("a").unwrap();
+		assert!(deleted);
+		let exists = db.exists("a").unwrap();
+		assert!(!exists);
+	}
+
+	#[test]
+	fn delete_non_existent_key_returns_false() {
+		let db = Stash::new();
+		let deleted = db.delete("missing").unwrap();
+		assert!(!deleted);
+	}
+
+	#[test]
+	fn delete_empty_key_returns_error() {
+		let db = Stash::new();
+		let result = db.delete("");
+		assert!(matches!(result, Err(StashError::EmptyKey)));
+	}
 }
